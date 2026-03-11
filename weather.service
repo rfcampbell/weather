@@ -1,0 +1,13 @@
+[Unit]
+Description=Port Townsend Weather Dashboard
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/weather
+Environment="PATH=/opt/weather/venv/bin"
+ExecStart=/opt/weather/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:5090 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

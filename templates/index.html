@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:         #0b0e14;
+  --ink:        #c8c4bc;
+  --ink-mid:    #96afc5;
+  --ink-dim:    #7e9aae;
+  --rule:       #1e2836;
+  --water-line: #2d6090;
+  --alert-red:  #a03428;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Grain */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23g)'/%3E%3C/svg%3E");
+  opacity: 0.032;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+main {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ── Loading ── */
+#loading {
+  height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+
+#page { display: none; }
+
+/* ── Stagger fade-in ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  opacity: 0;
+  animation: fadeUp 0.55s ease forwards;
+}
+
+/* ── Rule ── */
+.rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 1.75rem 0;
+}
+
+/* ── Hero ── */
+.hero {
+  padding-top: clamp(2.5rem, 8vw, 4.5rem);
+  padding-bottom: 1.5rem;
+}
+
+.location-line {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.source-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.source-btn {
+  background: none;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.54rem;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+  padding: 0.15rem 0.3rem;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.source-btn.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink-mid);
+}
+
+.source-sep {
+  color: var(--ink-dim);
+  font-size: 0.5rem;
+  opacity: 0.5;
+}
+
+.temp-wrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  line-height: 1;
+}
+
+.temp-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.08em;
+}
+
+.temp-num {
+  font-family: 'Cormorant', serif;
+  font-size: clamp(6rem, 24vw, 9.5rem);
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  line-height: 0.88;
+}
+
+.temp-unit {
+  font-family: 'Cormorant', serif;
+  font-size: clamp(1.6rem, 6.5vw, 2.8rem);
+  font-weight: 300;
+  color: var(--ink-mid);
+  margin-top: 0.45em;
+}
+
+.moon-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 0;
+  flex-shrink: 0;
+}
+
+.moon-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-top: 0.5rem;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.feels-like {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+  margin-top: 0.5rem;
+  letter-spacing: 0.04em;
+}
+
+.condition {
+  font-family: 'Cormorant', serif;
+  font-size: clamp(1.15rem, 4vw, 1.75rem);
+  font-weight: 300;
+  font-style: italic;
+  color: var(--ink-mid);
+  margin-top: 0.4rem;
+  line-height: 1.3;
+}
+
+/* ── Stats grid ── */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.stat:nth-child(odd)  { padding-right: 1.5rem; }
+.stat:nth-child(even) { padding-left: 1.5rem; border-left: 1px solid var(--rule); }
+.stat:nth-last-child(-n+2) { border-bottom: none; }
+
+.stat-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  flex-shrink: 0;
+}
+
+.stat-val {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* ── Compass rose (CSS only) ── */
+.wind-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.compass {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--ink-dim);
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* N tick */
+.compass::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 3px;
+  background: var(--ink-dim);
+}
+
+.compass-needle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 12px;
+  margin-top: -6px;
+  margin-left: -1px;
+  transform: rotate(var(--wd, 0deg));
+  transform-origin: center center;
+}
+
+/* bright tip = wind origin (FROM) */
+.compass-needle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 55%;
+  background: var(--ink);
+  border-radius: 2px 2px 0 0;
+}
+
+/* dim tail */
+.compass-needle::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: var(--ink-dim);
+  border-radius: 0 0 2px 2px;
+}
+
+/* ── Section labels ── */
+.section-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 1.1rem;
+}
+
+/* ── Tide SVG ── */
+.tide-wrap {
+  width: calc(100% + 3rem);
+  margin-left: -1.5rem;
+}
+
+#tide-svg {
+  display: block;
+  width: 100%;
+}
+
+.tide-events {
+  display: flex;
+  justify-content: space-around;
+  padding: 1rem 0 0;
+  flex-wrap: wrap;
+  gap: 0.5rem 0;
+}
+
+.tide-event {
+  text-align: center;
+  flex: 1 1 0;
+  min-width: 55px;
+}
+
+.tide-event-type {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.54rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  display: block;
+}
+
+.tide-event-height {
+  font-family: 'Cormorant', serif;
+  font-size: 1.7rem;
+  font-weight: 300;
+  color: var(--ink);
+  line-height: 1.1;
+  display: block;
+  letter-spacing: -0.02em;
+}
+
+.tide-event-unit {
+  font-size: 0.68rem;
+  color: var(--ink-mid);
+}
+
+.tide-event-time {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  color: var(--ink-mid);
+  display: block;
+  margin-top: 0.1rem;
+}
+
+/* ── Hourly ── */
+.hourly-row {
+  display: grid;
+  grid-template-columns: 3rem 2.6rem 1fr auto;
+  align-items: center;
+  gap: 0 0.75rem;
+  padding: 0.48rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.hourly-row:last-child { border-bottom: none; }
+
+.h-time {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.72rem;
+  color: var(--ink-mid);
+}
+
+.h-temp {
+  font-family: 'Cormorant', serif;
+  font-size: 1.3rem;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.h-temp span {
+  font-size: 0.62rem;
+  color: var(--ink-mid);
+  font-family: 'Inter', sans-serif;
+}
+
+.h-wind {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  color: var(--ink-mid);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-pop {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.68rem;
+  color: var(--ink-mid);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pop-pip {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  background: var(--ink-dim);
+  border-radius: 50%;
+  margin: 0 0.5px;
+  vertical-align: middle;
+}
+
+.pop-pip.filled { background: var(--ink-mid); }
+
+/* ── Alert — single line ── */
+.alert-line {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--alert-red);
+  padding-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+/* ── Footer ── */
+footer {
+  padding: 1.5rem 0 3rem;
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-dim);
+}
+</style>
+</head>
+<body>
+
+<div id="loading">Loading</div>
+
+<div id="page">
+<main>
+
+  <section class="hero">
+    <div class="location-line">
+      <span><span id="loc"></span> &nbsp;&middot;&nbsp; <span id="dt"></span></span>
+      <span class="source-toggle">
+        <button class="source-btn active" data-src="noaa" onclick="setSource('noaa')">NOAA</button>
+        <span class="source-sep">/</span>
+        <button class="source-btn" data-src="wu" onclick="setSource('wu')">WU</button>
+      </span>
+    </div>
+    <div class="temp-wrap">
+      <div class="temp-left">
+        <span class="temp-num" id="temp">—</span>
+        <span class="temp-unit">°F</span>
+      </div>
+      <div class="moon-wrap">
+        <svg id="moon-svg" width="80" height="80" viewBox="-40 -40 80 80"></svg>
+        <div class="moon-name" id="moon-name"></div>
+      </div>
+    </div>
+    <div class="feels-like" id="feels-like"></div>
+    <div class="condition" id="condition"></div>
+  </section>
+
+  <hr class="rule">
+
+  <section class="stats" id="stats"></section>
+
+  <hr class="rule">
+
+  <section>
+    <div class="section-label">Tides &mdash; Next 24 Hours</div>
+    <div class="tide-wrap">
+      <svg id="tide-svg" viewBox="0 0 600 150" preserveAspectRatio="none" height="130"></svg>
+    </div>
+    <div class="tide-events" id="tide-events"></div>
+  </section>
+
+  <hr class="rule">
+
+  <section>
+    <div class="section-label">Next 12 Hours</div>
+    <div id="hourly"></div>
+  </section>
+
+  <div id="alerts"></div>
+
+  <footer>
+    <span>NOAA &middot; NWS &middot; Tides &amp; Currents</span>
+    <span id="updated"></span>
+  </footer>
+
+</main>
+</div>
+
+<script>
+// ── Moon phase ───────────────────────────────────────
+
+function getMoonPhase(date) {
+  const KNOWN_NEW = 947182440000; // 2000-01-06T18:14Z
+  const SYNODIC   = 29.53058867 * 86400000;
+  return ((date.getTime() - KNOWN_NEW) % SYNODIC + SYNODIC) % SYNODIC / SYNODIC;
+}
+
+function moonPhaseName(p) {
+  if (p < 0.03 || p > 0.97) return 'New Moon';
+  if (p < 0.22) return 'Waxing Crescent';
+  if (p < 0.28) return 'First Quarter';
+  if (p < 0.47) return 'Waxing Gibbous';
+  if (p < 0.53) return 'Full Moon';
+  if (p < 0.72) return 'Waning Gibbous';
+  if (p < 0.78) return 'Last Quarter';
+  return 'Waning Crescent';
+}
+
+function drawMoon(phase) {
+  const r = 34;
+  const disk = `<circle r="${r}" fill="#0c1622" stroke="#2a3d52" stroke-width="0.75"/>`;
+  if (phase > 0.48 && phase < 0.52)
+    return disk + `<circle r="${r - 0.5}" fill="#c4c0b0" opacity="0.9"/>`;
+  if (phase < 0.02 || phase > 0.98) return disk;
+
+  const termRx = Math.abs(r * Math.cos(phase * 2 * Math.PI));
+  let lit;
+  if (phase < 0.5) {
+    const sw = phase < 0.25 ? 1 : 0;
+    lit = termRx < 0.5
+      ? `M 0 ${-r} A ${r} ${r} 0 0 1 0 ${r} L 0 ${-r} Z`
+      : `M 0 ${-r} A ${r} ${r} 0 0 1 0 ${r} A ${termRx.toFixed(2)} ${r} 0 0 ${sw} 0 ${-r} Z`;
+  } else {
+    const sw = phase < 0.75 ? 1 : 0;
+    lit = termRx < 0.5
+      ? `M 0 ${-r} A ${r} ${r} 0 0 0 0 ${r} L 0 ${-r} Z`
+      : `M 0 ${-r} A ${r} ${r} 0 0 0 0 ${r} A ${termRx.toFixed(2)} ${r} 0 0 ${sw} 0 ${-r} Z`;
+  }
+  return disk + `<path d="${lit}" fill="#bbb8a8" opacity="0.88"/>`;
+}
+
+function renderMoon() {
+  const phase = getMoonPhase(new Date());
+  document.getElementById('moon-svg').innerHTML = drawMoon(phase);
+  document.getElementById('moon-name').textContent = moonPhaseName(phase);
+}
+
+// ── Helpers ──────────────────────────────────────────
+
+const ARROWS = {N:'↑',NNE:'↑',NE:'↗',ENE:'→',E:'→',ESE:'→',SE:'↘',
+                SSE:'↓',S:'↓',SSW:'↓',SW:'↙',WSW:'←',W:'←',WNW:'←',NW:'↖',NNW:'↑'};
+
+function fmt12h(iso) {
+  return new Date(iso).toLocaleTimeString([], {hour:'numeric', hour12:true})
+    .toLowerCase().replace(' ','');
+}
+
+function fmtTideTime(s) {
+  const [,t] = s.split(' ');
+  const [h,m] = t.split(':').map(Number);
+  const ap = h >= 12 ? 'pm' : 'am';
+  return `${h % 12 || 12}:${String(m).padStart(2,'0')}&thinsp;${ap}`;
+}
+
+function condSymbol(text) {
+  if (!text) return '';
+  const t = text.toLowerCase();
+  if (t.includes('thunder'))                         return '⛈\u2002';
+  if (t.includes('snow') || t.includes('sleet'))     return '❄\u2002';
+  if (t.includes('rain') || t.includes('shower') ||
+      t.includes('drizzle') || t.includes('precip')) return '⛆\u2002';
+  if (t.includes('fog') || t.includes('mist'))       return '≋\u2002';
+  if (t.includes('overcast'))                        return '◻\u2002';
+  if (t.includes('mostly cloudy'))                   return '◑\u2002';
+  if (t.includes('partly'))                          return '◐\u2002';
+  if (t.includes('clear') || t.includes('sunny') ||
+      t.includes('fair'))                            return '◎\u2002';
+  return '';
+}
+
+function popPips(pct) {
+  if (pct == null || pct < 5) return '';
+  const filled = Math.round(pct / 20);
+  let html = '';
+  for (let i = 0; i < 5; i++)
+    html += `<span class="pop-pip${i < filled ? ' filled' : ''}"></span>`;
+  return `<span style="margin-right:0.3rem">${html}</span>${pct}%`;
+}
+
+// ── Tide SVG ─────────────────────────────────────────
+
+function renderTide(tides) {
+  const svg = document.getElementById('tide-svg');
+  if (!tides || tides.length < 2) { svg.innerHTML = ''; return; }
+
+  const W = 600, H = 150, PAD_T = 20, PAD_B = 20;
+
+  function parseT(s) {
+    const [, time] = s.split(' ');
+    const [hh, mm] = time.split(':').map(Number);
+    return hh * 60 + mm;
+  }
+
+  const pts = tides.map(t => ({ t: parseT(t.time), h: t.height_ft }));
+
+  // Synthetic endpoints to smooth curve to edges
+  const dt0 = pts[1].t - pts[0].t;
+  const dt1 = pts[pts.length-1].t - pts[pts.length-2].t;
+  const all = [
+    { t: pts[0].t - dt0, h: pts[1].h },
+    ...pts,
+    { t: pts[pts.length-1].t + dt1, h: pts[pts.length-2].h },
+  ];
+
+  const hs = pts.map(p => p.h);
+  const hMin = Math.min(...hs), hMax = Math.max(...hs);
+  const hPad = (hMax - hMin) * 0.18 || 0.5;
+
+  function tx(t) { return t / 1440 * W; }
+  function ty(h) {
+    return H - PAD_B - ((h - (hMin - hPad)) / (hMax - hMin + hPad * 2)) * (H - PAD_T - PAD_B);
+  }
+
+  // Cubic bezier — horizontal tangents at all extrema
+  let linePath = `M ${tx(all[0].t).toFixed(1)} ${ty(all[0].h).toFixed(1)}`;
+  for (let i = 1; i < all.length; i++) {
+    const p0 = all[i-1], p1 = all[i];
+    const x0 = tx(p0.t), y0 = ty(p0.h);
+    const x1 = tx(p1.t), y1 = ty(p1.h);
+    const dx = (x1 - x0) / 3;
+    linePath += ` C ${(x0+dx).toFixed(1)} ${y0.toFixed(1)},${(x1-dx).toFixed(1)} ${y1.toFixed(1)},${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  }
+
+  const areaPath = linePath + ` L ${W} ${H} L 0 ${H} Z`;
+
+  // Now marker
+  const now = new Date();
+  const nowX = tx(now.getHours() * 60 + now.getMinutes());
+  const nowHour = now.toLocaleTimeString([], {hour:'numeric', hour12:true}).toLowerCase().replace(' ','');
+
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#1e4d7a" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#0c1a2e" stop-opacity="0.04"/>
+      </linearGradient>
+      <clipPath id="tc"><rect width="${W}" height="${H}"/></clipPath>
+    </defs>
+    <g clip-path="url(#tc)">
+      <path id="tide-area" d="${areaPath}" fill="url(#wg)" opacity="0"/>
+      <path id="tide-line" d="${linePath}" fill="none" stroke="var(--water-line)" stroke-width="1.5" stroke-linecap="round"/>
+      <line id="now-line"
+            x1="${nowX.toFixed(1)}" y1="0"
+            x2="${nowX.toFixed(1)}" y2="${H}"
+            stroke="#8ab4d4" stroke-width="1" stroke-dasharray="2 4" opacity="0.5"/>
+      <text x="${Math.min(nowX + 4, W - 30).toFixed(1)}" y="10"
+            font-family="Inter,sans-serif" font-size="8" fill="#8ab4d4" opacity="0.55"
+            letter-spacing="0.5">${nowHour}</text>
+    </g>`;
+
+  // Draw-on animation via stroke-dasharray
+  const lineEl = svg.querySelector('#tide-line');
+  const len = lineEl.getTotalLength();
+  lineEl.style.strokeDasharray = len;
+  lineEl.style.strokeDashoffset = len;
+  lineEl.getBoundingClientRect(); // force reflow
+  lineEl.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+  lineEl.style.strokeDashoffset = 0;
+
+  // Area fades in slightly after line starts
+  const areaEl = svg.querySelector('#tide-area');
+  areaEl.style.transition = 'opacity 1s ease 0.5s';
+  areaEl.style.opacity = 1;
+}
+
+function renderTideEvents(tides) {
+  document.getElementById('tide-events').innerHTML = tides.map(t => `
+    <div class="tide-event">
+      <span class="tide-event-type">${t.type}</span>
+      <span class="tide-event-height">${t.height_ft.toFixed(1)}<span class="tide-event-unit"> ft</span></span>
+      <span class="tide-event-time">${fmtTideTime(t.time)}</span>
+    </div>`).join('');
+}
+
+// ── Stagger fade-in ───────────────────────────────────
+
+function staggerIn() {
+  document.querySelectorAll('#page main > *').forEach((el, i) => {
+    el.classList.add('fade-in');
+    el.style.animationDelay = `${(i * 0.07).toFixed(2)}s`;
+  });
+}
+
+// ── Source toggle ─────────────────────────────────────
+
+let activeSource = 'noaa';
+
+function setSource(src) {
+  if (src === activeSource) return;
+  activeSource = src;
+  document.querySelectorAll('.source-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.src === src));
+  updateConditions(src);
+}
+
+function renderConditions(c) {
+  document.getElementById('temp').textContent = c.temperature_f ?? '—';
+
+  const fl = c.feels_like_f;
+  document.getElementById('feels-like').textContent =
+    (fl != null && Math.abs(fl - (c.temperature_f ?? fl)) >= 1) ? `feels like ${fl}°` : '';
+
+  document.getElementById('condition').innerHTML =
+    condSymbol(c.description) + (c.description || (c.source === 'wu' ? 'PWS · ' + c.station : 'No recent observation'));
+
+  const deg = c.wind_direction_deg ?? 0;
+  const windVal = c.wind_speed_mph != null
+    ? `<span class="wind-val">
+         <span class="compass" style="--wd:${deg}deg"><span class="compass-needle"></span></span>
+         ${c.wind_speed_mph} mph ${c.wind_direction_cardinal ?? ''}
+       </span>`
+    : '—';
+
+  const stats = [
+    ['Wind',       windVal],
+    ['Gust',       c.wind_gust_mph       != null ? `${c.wind_gust_mph} mph`          : '—'],
+    ['Humidity',   c.humidity_pct        != null ? `${Math.round(c.humidity_pct)}%`  : '—'],
+    ['Pressure',   c.barometric_pressure_mb       ? `${c.barometric_pressure_mb} mb` : '—'],
+    ['Dewpoint',   c.dewpoint_f          != null ? `${c.dewpoint_f}°F`              : '—'],
+    ['Visibility', c.visibility_miles    != null ? `${c.visibility_miles} mi`        : '—'],
+  ];
+
+  document.getElementById('stats').innerHTML = stats.map(([label, val]) =>
+    `<div class="stat">
+      <span class="stat-label">${label}</span>
+      <span class="stat-val">${val}</span>
+    </div>`).join('');
+}
+
+async function updateConditions(src) {
+  try {
+    const res = await fetch(`/api/weather?source=${src}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    renderConditions(d.current_conditions);
+  } catch(e) {
+    document.getElementById('condition').textContent = e.message;
+  }
+}
+
+// ── Render ────────────────────────────────────────────
+
+async function load() {
+  try {
+    const res = await fetch('/api/weather');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+
+    document.getElementById('dt').textContent = new Date().toLocaleDateString('en-US',
+      {weekday:'long', month:'long', day:'numeric'});
+
+    renderConditions(d.current_conditions);
+    renderTide(d.tide_predictions_24hr);
+    renderTideEvents(d.tide_predictions_24hr);
+
+    document.getElementById('hourly').innerHTML = d.hourly_forecast.map(h => `
+      <div class="hourly-row">
+        <span class="h-time">${fmt12h(h.start_time)}</span>
+        <span class="h-temp">${h.temperature_f}<span>°</span></span>
+        <span class="h-wind">${h.wind_speed} ${h.wind_direction}</span>
+        <span class="h-pop">${popPips(h.probability_of_precipitation)}</span>
+      </div>`).join('');
+
+    if (d.marine_alerts?.length) {
+      const names = d.marine_alerts.map(a => a.event).join('  ·  ');
+      document.getElementById('alerts').innerHTML =
+        `<p class="alert-line">⚠&ensp;${names}</p>`;
+    }
+
+    document.getElementById('loc').textContent = d.location;
+    document.getElementById('updated').textContent = 'Updated ' +
+      new Date(d.generated_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+    renderMoon();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('page').style.display = 'block';
+    staggerIn();
+
+  } catch(e) {
+    console.error(e);
+    const el = document.getElementById('loading');
+    el.textContent = e.message;
+    el.style.color = '#c06040';
+  }
+}
+
+load();
+</script>
+</body>
+</html>
